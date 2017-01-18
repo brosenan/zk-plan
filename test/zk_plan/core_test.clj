@@ -74,17 +74,22 @@
              (get-task ..zk.. "/foo") => "/foo/bar"
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
-              (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
+              (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux")))
        (fact "it does not return tasks that have dep-* children"
              (get-task ..zk.. "/foo") => nil
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
-              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "dep-0001")))
+              (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux" "dep-0001")))
        (fact "it does not return tasks that have owner nodes"
              (get-task ..zk.. "/foo") => nil
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
-              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "owner"))))
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "ready" "owner")))
+       (fact "it does not take tasks that are not marked ready"
+             (get-task ..zk.. "/foo") => nil
+             (provided
+              (zk/children ..zk.. "/foo") => '("bar")
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux"))))
 
 (facts "about (mark-as-read zk task)"
        (fact "it creates a child node named 'ready'"
