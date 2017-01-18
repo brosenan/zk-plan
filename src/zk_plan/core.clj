@@ -42,3 +42,4 @@
                                      (contains? (set task-props) "ready")
                                      (take-ownership zk task)))) tasks)]
     (first valid-tasks)))
+
