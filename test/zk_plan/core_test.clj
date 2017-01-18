@@ -28,7 +28,14 @@
               (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant
               (add-dependency ..zk.. ..arg1.. ..task..) => irrelevant
               (add-dependency ..zk.. ..arg2.. ..task..) => irrelevant
-              (add-dependency ..zk.. ..arg3.. ..task..) => irrelevant)))
+              (add-dependency ..zk.. ..arg3.. ..task..) => irrelevant))
+)
+(comment        (fact "it adds a 'ready' node once definition is complete"
+             (add-task ..zk.. ..plan.. ..fn.. []) => irrelevant
+             (provided
+              (zk/create irrelevant irrelevant :persistent? true :sequential? true) => "/foo/bar"
+              (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant
+              (zk/create ..zk.. "/foo/bar/ready" :persistent? true))))
 
 (facts "about (set-initial-clj-data zk node data)"
        (fact "it calls zk/set-data to update the data"
@@ -66,8 +73,13 @@
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
               (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
-       (fact "it returns nil if all tasks have dep-* children"
+       (fact "it does not return tasks that have dep-* children"
              (get-task ..zk.. "/foo") => nil
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
-              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "dep-0001"))))
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "dep-0001")))
+       (fact "it does not return tasks that have owner nodes"
+             (get-task ..zk.. "/foo") => nil
+             (provided
+              (zk/children ..zk.. "/foo") => '("bar")
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "owner"))))

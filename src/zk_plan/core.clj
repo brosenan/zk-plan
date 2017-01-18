@@ -30,5 +30,6 @@
         tasks (map #(str plan "/" %) task-names)
         valid-tasks (filter (fn [task]
                               (let [task-props (zk/children zk task)]
-                                (not (some (partial re-matches #"dep-[0-9]+") task-props)))) tasks)]
+                                (not (some #(or (re-matches #"dep-[0-9]+" %)
+                                                (= "owner" %)) task-props)))) tasks)]
     (first valid-tasks)))
