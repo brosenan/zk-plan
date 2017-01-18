@@ -13,8 +13,12 @@
         ver (:version (zk/exists zk node))]
     (zk/set-data zk node bytes ver)))
 
+(defn add-dependency [zk from to])
+
 (defn add-task [zk plan fn arg-tasks]
   (let [task (zk/create zk (str plan "/task-") :sequential? true)]
     (set-clj-data zk task fn)
+    (doseq [arg arg-tasks]
+      (add-dependency zk arg task))
     task))
 
