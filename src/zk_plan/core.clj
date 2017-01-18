@@ -29,6 +29,9 @@
     (mark-as-ready zk task)
     task))
 
+(defn take-ownership [zk task]
+  (zk/create zk (str task "/owner") :persistent? false))
+
 (defn get-task [zk plan]
   (let [task-names (zk/children zk plan)
         tasks (map #(str plan "/" %) task-names)
@@ -36,5 +39,6 @@
                               (let [task-props (zk/children zk task)]
                                 (and (not (some #(or (re-matches #"dep-[0-9]+" %)
                                                      (= "owner" %)) task-props))
-                                     (contains? (set task-props) "ready")))) tasks)]
+                                     (contains? (set task-props) "ready")
+                                     (take-ownership zk task)))) tasks)]
     (first valid-tasks)))

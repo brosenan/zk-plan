@@ -74,7 +74,8 @@
              (get-task ..zk.. "/foo") => "/foo/bar"
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
-              (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux")))
+              (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux")
+              (take-ownership ..zk.. "/foo/bar") => true))
        (fact "it does not return tasks that have dep-* children"
              (get-task ..zk.. "/foo") => nil
              (provided
@@ -89,10 +90,31 @@
              (get-task ..zk.. "/foo") => nil
              (provided
               (zk/children ..zk.. "/foo") => '("bar")
-              (zk/children ..zk.. "/foo/bar") => '("baz" "quux"))))
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
+       (fact "it takes ownership over the task by adding an 'owner' node"
+             (get-task ..zk.. "/foo") => "/foo/bar"
+             (provided
+              (zk/children ..zk.. "/foo") => '("bar")
+              (zk/children ..zk.. "/foo/bar") => '("ready")
+              (take-ownership ..zk.. "/foo/bar") => true))
+       (fact "it moves to the next task if it is unable to take ownership"
+             (get-task ..zk.. "/foo") => "/foo/baz"
+             (provided
+              (zk/children ..zk.. "/foo") => '("bar" "baz")
+              (zk/children ..zk.. "/foo/bar") => '("ready")
+              (take-ownership ..zk.. "/foo/bar") => false
+              (zk/children ..zk.. "/foo/baz") => '("ready")
+              (take-ownership ..zk.. "/foo/baz") => true)))
 
 (facts "about (mark-as-read zk task)"
        (fact "it creates a child node named 'ready'"
              (mark-as-ready ..zk.. "/foo/bar") => irrelevant
              (provided
               (zk/create ..zk.. "/foo/bar/ready" :persistent? true) => true)))
+
+
+(facts "about (take-ownership zk task)"
+       (fact "it tries to add an ephemeral 'owner' node to the task, and return whether it was successful"
+             (take-ownership ..zk.. "/foo/bar") => ..result..
+             (provided
+              (zk/create ..zk.. "/foo/bar/owner" :persistent? false) => ..result..)))
