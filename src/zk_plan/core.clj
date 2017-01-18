@@ -7,20 +7,19 @@
 (defn to-bytes [str]
   (.getBytes str "UTF-8"))
 
-(defn set-clj-data [zk node data]
+(defn set-initial-clj-data [zk node data]
   (let [str (pr-str data)
-        bytes (to-bytes str)
-        ver (:version (zk/exists zk node))]
-    (zk/set-data zk node bytes ver)))
+        bytes (to-bytes str)]
+    (zk/set-data zk node bytes 0)))
 
 (defn add-dependency [zk from to]
   (let [prov (zk/create zk (str from "/prov-") :persistent? true :sequential? true)
         dep (zk/create zk (str to "/dep-") :persistent? true :sequential? true)]
-    (set-clj-data zk prov dep)))
+    (set-initial-clj-data zk prov dep)))
 
 (defn add-task [zk plan fn arg-tasks]
   (let [task (zk/create zk (str plan "/task-") :persistent? true :sequential? true)]
-    (set-clj-data zk task fn)
+    (set-initial-clj-data zk task fn)
     (doseq [arg arg-tasks]
       (add-dependency zk arg task))
     task))
