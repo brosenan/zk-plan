@@ -7,24 +7,24 @@
        (fact "it calls zk/create"
              (create-plan ..zk.. ..parent..) => ..node..
              (provided
-              (zk/create ..zk.. ..prefix.. :sequential? true) => ..node..
+              (zk/create ..zk.. ..prefix.. :persistent? true :sequential? true) => ..node..
               (str ..parent.. "/plan-") => ..prefix..)))
 (facts "about (add-task zk plan fn arg-tasks)"
        (fact "it creates a sequential node under the plan"
              (add-task ..zk.. ..plan.. ..fn.. []) => ..task..
              (provided
-              (zk/create ..zk.. ..prefix.. :sequential? true) => ..task..
+              (zk/create ..zk.. ..prefix.. :persistent? true :sequential? true) => ..task..
               (str ..plan.. "/task-") => ..prefix..
               (set-clj-data irrelevant irrelevant irrelevant) => irrelevant))
        (fact "it sets the task node's data to contain a serialization of fn"
              (add-task ..zk.. ..plan.. ..fn.. []) => ..task..
              (provided
-              (zk/create irrelevant irrelevant :sequential? true) => ..task..
+              (zk/create irrelevant irrelevant :persistent? true :sequential? true) => ..task..
               (set-clj-data ..zk.. ..task.. ..fn..) => irrelevant))
        (fact "it calls add-dependency for each arg-task"
              (add-task ..zk.. ..plan.. ..fn.. [..arg1.. ..arg2.. ..arg3..]) => irrelevant
              (provided
-              (zk/create irrelevant irrelevant :sequential? true) => ..task..
+              (zk/create irrelevant irrelevant :persistent? true :sequential? true) => ..task..
               (set-clj-data irrelevant irrelevant irrelevant) => irrelevant
               (add-dependency ..zk.. ..arg1.. ..task..) => irrelevant
               (add-dependency ..zk.. ..arg2.. ..task..) => irrelevant

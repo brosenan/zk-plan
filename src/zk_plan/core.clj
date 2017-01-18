@@ -2,7 +2,7 @@
   (:use [zookeeper :as zk]))
 
 (defn create-plan [zk parent]
-  (zk/create zk (str parent "/plan-") :sequential? true))
+  (zk/create zk (str parent "/plan-") :persistent? true :sequential? true))
 
 (defn to-bytes [str]
   (.getBytes str "UTF-8"))
@@ -19,7 +19,7 @@
     (set-clj-data zk prov dep)))
 
 (defn add-task [zk plan fn arg-tasks]
-  (let [task (zk/create zk (str plan "/task-") :sequential? true)]
+  (let [task (zk/create zk (str plan "/task-") :persistent? true :sequential? true)]
     (set-clj-data zk task fn)
     (doseq [arg arg-tasks]
       (add-dependency zk arg task))
