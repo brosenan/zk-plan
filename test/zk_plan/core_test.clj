@@ -118,3 +118,32 @@
              (take-ownership ..zk.. "/foo/bar") => ..result..
              (provided
               (zk/create ..zk.. "/foo/bar/owner" :persistent? false) => ..result..)))
+
+(facts "about (perform-task zk task)"
+       (fact "it evaluates the task data"
+             (perform-task ..zk.. "/foo/bar") => irrelevant
+             (provided
+              (get-clj-data ..zk.. "/foo/bar") => ..func..
+              (execute-function irrelevant irrelevant irrelevant) => irrelevant
+              (zk/create irrelevant irrelevant :persistent? true) => true
+              (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant))
+       (fact "it writes the return value as a 'result' node"
+             (perform-task ..zk.. "/foo/bar") => irrelevant
+             (provided
+              (get-clj-data ..zk.. "/foo/bar") => ..fn..
+              (execute-function ..zk.. ..fn.. "/foo/bar") => ..result..
+              (zk/create ..zk.. "/foo/bar/result" :persistent? true) => true
+              (set-initial-clj-data ..zk.. "/foo/bar/result" ..result..) => irrelevant)))
+
+(facts "about (execute-function zk func task)"
+       (fact "it executes the function without parameters if no parameters exist in the task"
+             (execute-function ..zk.. '(fn [] 3) ..task..) => 3
+             (provided
+              (zk/children ..zk.. ..task..) => '("foo" "bar")))
+       (fact "it passes the task arguments to the function"
+             (execute-function ..zk.. '(fn [& args] args) "/foo/bar") => [1 2 3]
+             (provided
+              (zk/children ..zk.. "/foo/bar") => '("arg-00001" "arg-00002" "arg-00000")
+              (get-clj-data ..zk.. "/foo/bar/arg-00000") => 1
+              (get-clj-data ..zk.. "/foo/bar/arg-00001") => 2
+              (get-clj-data ..zk.. "/foo/bar/arg-00002") => 3)))

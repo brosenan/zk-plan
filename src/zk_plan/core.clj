@@ -43,3 +43,21 @@
                                      (take-ownership zk task)))) tasks)]
     (first valid-tasks)))
 
+
+(defn get-clj-data [zk node]
+  (read-string (String. (zk/data zk node) "UTF-8")))
+
+(defn execute-function [zk func node]
+  (let [children (zk/children zk node)
+        argnodes (filter #(re-matches #"arg-\d+" %) children)
+        argnodes (sort argnodes)
+        argnodes (map #(str node "/" %) argnodes)
+        vals (map #(get-clj-data zk %) argnodes)]
+    (apply (eval func) vals)))
+
+(defn perform-task [zk task]
+  (let [func (get-clj-data zk task)
+        result (execute-function zk func task)
+        res-node (str task "/result")]
+    (zk/create zk res-node :persistent? true)
+    (set-initial-clj-data zk res-node result)))
