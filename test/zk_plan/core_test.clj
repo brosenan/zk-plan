@@ -55,3 +55,19 @@
               (zk/create ..zk.. "/path/from/prov-" :persistent? true :sequential? true) => ..from-link..
               (zk/create ..zk.. "/path/to/dep-" :persistent? true :sequential? true) => ..to-link..
               (set-initial-clj-data ..zk.. ..from-link.. ..to-link..) => irrelevant)))
+
+(facts "about (get-task zk plan)"
+       (fact "it returns nil if the plan is empty"
+             (get-task ..zk.. ..plan..) => nil
+             (provided
+              (zk/children ..zk.. ..plan..) => nil))
+       (fact "it returns a task if it does not have dep-* or owner as children"
+             (get-task ..zk.. "/foo") => "/foo/bar"
+             (provided
+              (zk/children ..zk.. "/foo") => '("bar")
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
+       (fact "it returns nil if all tasks have dep-* children"
+             (get-task ..zk.. "/foo") => nil
+             (provided
+              (zk/children ..zk.. "/foo") => '("bar")
+              (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "dep-0001"))))

@@ -1,5 +1,6 @@
 (ns zk-plan.core
-  (:use [zookeeper :as zk]))
+  (:use [zookeeper :as zk])
+  (:require [clojure.string :as str]))
 
 (defn create-plan [zk parent]
   (zk/create zk (str parent "/plan-") :persistent? true :sequential? true))
@@ -24,3 +25,10 @@
       (add-dependency zk arg task))
     task))
 
+(defn get-task [zk plan]
+  (let [task-names (zk/children zk plan)
+        tasks (map #(str plan "/" %) task-names)
+        valid-tasks (filter (fn [task]
+                              (let [task-props (zk/children zk task)]
+                                (not (some (partial re-matches #"dep-[0-9]+") task-props)))) tasks)]
+    (first valid-tasks)))
