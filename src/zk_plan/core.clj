@@ -18,11 +18,14 @@
         dep (zk/create zk (str to "/dep-") :persistent? true :sequential? true)]
     (set-initial-clj-data zk prov dep)))
 
+(defn mark-as-ready [zk task])
+
 (defn add-task [zk plan fn arg-tasks]
   (let [task (zk/create zk (str plan "/task-") :persistent? true :sequential? true)]
     (set-initial-clj-data zk task fn)
     (doseq [arg arg-tasks]
       (add-dependency zk arg task))
+    (mark-as-ready zk task)
     task))
 
 (defn get-task [zk plan]

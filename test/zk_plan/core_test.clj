@@ -15,7 +15,8 @@
              (provided
               (zk/create ..zk.. ..prefix.. :persistent? true :sequential? true) => ..task..
               (str ..plan.. "/task-") => ..prefix..
-              (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant))
+              (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant)))
+
        (fact "it sets the task node's data to contain a serialization of fn"
              (add-task ..zk.. ..plan.. ..fn.. []) => ..task..
              (provided
@@ -29,13 +30,12 @@
               (add-dependency ..zk.. ..arg1.. ..task..) => irrelevant
               (add-dependency ..zk.. ..arg2.. ..task..) => irrelevant
               (add-dependency ..zk.. ..arg3.. ..task..) => irrelevant))
-)
-(comment        (fact "it adds a 'ready' node once definition is complete"
+       (fact "it adds a 'ready' node once definition is complete"
              (add-task ..zk.. ..plan.. ..fn.. []) => irrelevant
              (provided
-              (zk/create irrelevant irrelevant :persistent? true :sequential? true) => "/foo/bar"
+              (zk/create irrelevant irrelevant :persistent? true :sequential? true) => ..task..
               (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant
-              (zk/create ..zk.. "/foo/bar/ready" :persistent? true))))
+              (mark-as-ready ..zk.. ..task..) => irrelevant))
 
 (facts "about (set-initial-clj-data zk node data)"
        (fact "it calls zk/set-data to update the data"
