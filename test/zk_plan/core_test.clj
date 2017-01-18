@@ -43,3 +43,17 @@
              (provided
               (zk/exists ..zk.. ..node..) => {:version ..oldver.. :foo "bar"}
               (zk/set-data irrelevant irrelevant irrelevant ..oldver..) => irrelevant)))
+
+(facts "about (add-dependency zk from to)"
+       (fact "it adds sequential children to both the 'from' and the 'to' tasks"
+             (add-dependency ..zk.. "/path/from" "/path/to") => irrelevant
+             (provided
+              (zk/create ..zk.. "/path/from/prov-" :persistent? true :sequential? true) => irrelevant
+              (zk/create ..zk.. "/path/to/dep-" :persistent? true :sequential? true) => irrelevant
+              (set-clj-data irrelevant irrelevant irrelevant) => irrelevant))
+       (fact "it sets the data of the prov child to be the path to the corresponding dep child"
+             (add-dependency ..zk.. "/path/from" "/path/to") => irrelevant
+             (provided
+              (zk/create ..zk.. "/path/from/prov-" :persistent? true :sequential? true) => ..from-link..
+              (zk/create ..zk.. "/path/to/dep-" :persistent? true :sequential? true) => ..to-link..
+              (set-clj-data ..zk.. ..from-link.. ..to-link..) => irrelevant)))
