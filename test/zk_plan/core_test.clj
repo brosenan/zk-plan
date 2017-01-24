@@ -131,23 +131,39 @@ It calls zk/createn to create a new zookeeper node"
 - **task:** path to the task to perform
 
 **Returns:** Nothing in particular"
-"It evaluates the task data"
-(fact
-      (perform-task ..zk.. "/foo/bar") => irrelevant
-      (provided
-       (get-clj-data ..zk.. "/foo/bar") => ..func..
-       (execute-function irrelevant irrelevant irrelevant) => irrelevant
-       (zk/create irrelevant irrelevant :persistent? true) => true
-       (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant))
-"It writes the return value as a 'result' node"
-(fact
-      (perform-task ..zk.. "/foo/bar") => irrelevant
-      (provided
-       (get-clj-data ..zk.. "/foo/bar") => ..fn..
-       (execute-function ..zk.. ..fn.. "/foo/bar") => ..result..
-       (zk/create ..zk.. "/foo/bar/result" :persistent? true) => true
-       (set-initial-clj-data ..zk.. "/foo/bar/result" ..result..) => irrelevant))
 
+"If the task has a 'result' child and no 'prov-*' children, this means the task completed
+successfully, and the result has been distributed to all dependent tasks (if any).
+In such a case we remove the task."
+(fact
+ (perform-task ..zk.. "/foo/bar") => irrelevant
+ (provided
+  (zk/children ..zk.. "/foo/bar") => '("result")
+  (get-clj-data irrelevant irrelevant) => 123
+  (zk/delete-all ..zk.. "/foo/bar") => irrelevant))
+
+"If prov-* children exist, it reads the result and distributes it across the tasks
+depending on this task (the corresponding dep-* nodes)"
+(fact
+ (perform-task ..zk.. "/foo/bar") => irrelevant
+ (provided
+  (zk/children ..zk.. "/foo/bar") => '("result" "prov-00000" "prov-0001")
+  (get-clj-data ..zk.. "/foo/bar/result") => 3.1415
+  (propagate-result ..zk.. "/foo/bar/prov-00000" 3.1415) => irrelevant
+  (propagate-result ..zk.. "/foo/bar/prov-0001" 3.1415) => irrelevant
+  (zk/delete-all irrelevant irrelevant) => irrelevant))
+
+"If the task does not have a result, we need to calculate the result ourselves.
+We call execute-function to get the result, and store it as the 'result' child."
+(fact
+ (perform-task ..zk.. "/foo/bar") => irrelevant
+ (provided
+  (zk/children ..zk.. "/foo/bar") => '()
+  (execute-function ..zk.. "/foo/bar") => 1234.5
+                                        ; It should create a result child node and store the result to it
+  (zk/create ..zk.. "/foo/bar/result" :persistent? true) => true
+  (set-initial-clj-data ..zk.. "/foo/bar/result" 1234.5) => irrelevant
+  (zk/delete-all irrelevant irrelevant) => irrelevant))
 
 [[:chapter {:title "Internal Implementation"}]]
 [[:section {:title "set-initial-clj-data"}]]
@@ -233,19 +249,21 @@ It calls zk/createn to create a new zookeeper node"
 "
 **Parameters:**
 - **zk:** the Zookeeper connection object
-- **func:** an s-expression that evaluates to the function to be executed
 - **task:** path to the task node containing arguments for the function  
 
-**Returns:** the return value from the function"
-"It executes the function without parameters if no parameters exist in the task"
+**Returns:** the return value from the task's function"
+"It reads the function definition from the content of the task node.
+If no parameters exist in the task it executes the function without parameters."
 (fact
-      (execute-function ..zk.. '(fn [] 3) ..task..) => 3
+      (execute-function ..zk.. ..task..) => 3
       (provided
+       (get-clj-data ..zk.. ..task..) => '(fn [] 3)
        (zk/children ..zk.. ..task..) => '("foo" "bar")))
 "It passes the task arguments to the function"
 (fact
-      (execute-function ..zk.. '(fn [& args] args) "/foo/bar") => [1 2 3]
+      (execute-function ..zk.. "/foo/bar") => [1 2 3]
       (provided
+       (get-clj-data ..zk.. "/foo/bar") => '(fn [& args] args)
        (zk/children ..zk.. "/foo/bar") => '("arg-00001" "arg-00002" "arg-00000")
        (get-clj-data ..zk.. "/foo/bar/arg-00000") => 1
        (get-clj-data ..zk.. "/foo/bar/arg-00001") => 2

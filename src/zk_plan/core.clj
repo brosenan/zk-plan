@@ -47,17 +47,37 @@
 (defn get-clj-data [zk node]
   (read-string (String. (zk/data zk node) "UTF-8")))
 
-(defn execute-function [zk func node]
-  (let [children (zk/children zk node)
+(defn execute-function [zk node]
+  (let [func (get-clj-data zk node)
+        children (zk/children zk node)
         argnodes (filter #(re-matches #"arg-\d+" %) children)
         argnodes (sort argnodes)
         argnodes (map #(str node "/" %) argnodes)
         vals (map #(get-clj-data zk %) argnodes)]
     (apply (eval func) vals)))
 
+(defn propagate-result [zk prov result])
+
+(defn prov? [key]
+  (re-matches #"prov-\d+" key))
+
 (defn perform-task [zk task]
-  (let [func (get-clj-data zk task)
+  (let [children   (zk/children zk task)
+        result-node (str task "/result")
+        res (if (contains? (set children) "result")
+              (get-clj-data zk result-node)
+              ; else
+              (execute-function zk task))]
+    (when-not (contains? (set children) "result")
+      (zk/create zk result-node :persistent? true)
+      (set-initial-clj-data zk result-node res))
+    (doseq [prov (filter prov? children)]
+      (propagate-result zk (str task "/" prov) res)))
+  (zk/delete-all zk task))
+
+(comment   (let [func (get-clj-data zk task)
         result (execute-function zk func task)
         res-node (str task "/result")]
     (zk/create zk res-node :persistent? true)
     (set-initial-clj-data zk res-node result)))
+
