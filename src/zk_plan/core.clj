@@ -80,5 +80,23 @@
       (propagate-result zk (str task "/" prov) res)))
   (zk/delete-all zk task))
 
+(defn get-task-from-any-plan [zk parent]
+  (let [plans (->> (zk/children zk parent)
+                   (map #(str parent "/" %)))
+        ready-plans (filter (fn [plan] (zk/exists zk (str plan "/ready"))) plans)
+        tasks (map #(get-task zk %) ready-plans)]
+    (some identity tasks)
+))
 
+(defn calc-sleep-time [attrs count])
+
+(defn worker [zk parent attrs]
+  (loop [count 0]
+    (let [task (get-task-from-any-plan zk parent)]
+      (if task
+        (perform-task zk task)
+        ; else
+        (do
+          (Thread/sleep (calc-sleep-time attrs count))
+          (recur (inc count)))))))
 

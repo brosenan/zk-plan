@@ -13,7 +13,7 @@
                                         :navigation   :navigation
                                         :article      :article}}
                   :paths ["test/zk-plan"]
-                  :files {"API Documentation"
+                  :files {"index"
                           {:input "test/zk_plan/core_test.clj"
                            :title "API Documentation"
                            :subtitle "generating a document from code"}}

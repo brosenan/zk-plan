@@ -62,6 +62,35 @@ It calls zk/createn to create a new zookeeper node"
        (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant
        (mark-as-ready ..zk.. ..task..) => irrelevant))
 
+[[:section {:title "worker"}]]
+"
+**Parameters:**
+- **zk:** the Zookeeper connection object
+- **parent:** the parent node of all plans
+- **attributes:** a map with attributes for the behavior of the worker
+
+**Returns:** nothing in particular"
+"It does the following:
+- calls `get-task-from-any-plan` to get a task to work on
+- if a task is returned (we have something to do), it calls `perform-task` to run it"
+(fact
+ (worker ..zk.. ..parent.. ..attrs..) => irrelevant
+ (provided
+  (get-task-from-any-plan ..zk.. ..parent..) => "/foo/bar"
+  (perform-task ..zk.. "/foo/bar") => irrelevant))
+
+"If `get-task-from-any-plan` returns `nil`, we call `calc-sleep-time` to calculate for how long
+we need to sleep before the next retry.
+We retry until we get a task."
+(fact
+ (worker ..zk.. ..parent.. ..attrs..) => irrelevant
+ (provided
+  (get-task-from-any-plan ..zk.. ..parent..) =streams=> [nil nil "/foo/bar"]
+  (calc-sleep-time ..attrs.. 0) => 1
+  (calc-sleep-time ..attrs.. 1) => 2
+  (perform-task irrelevant irrelevant) => irrelevant))
+
+[[:chapter {:title "Internal Implementation"}]]
 [[:section {:title "get-task"}]]
 "
 **Parameters:**
@@ -165,7 +194,6 @@ We call execute-function to get the result, and store it as the 'result' child."
   (set-initial-clj-data ..zk.. "/foo/bar/result" 1234.5) => irrelevant
   (zk/delete-all irrelevant irrelevant) => irrelevant))
 
-[[:chapter {:title "Internal Implementation"}]]
 [[:section {:title "set-initial-clj-data"}]]
 "
 **Parameters:**
@@ -289,3 +317,49 @@ If no parameters exist in the task it executes the function without parameters."
   (zk/create ..zk.. "/foo/bar/arg-01472" :persistent? true) => true
   (set-initial-clj-data ..zk.. "/foo/bar/arg-01472" ..value..) => irrelevant
   (zk/delete ..zk.. "/foo/bar/dep-01472") => irrelevant))
+
+[[:section {:title "get-task-from-any-plan"}]]
+"
+**Parameters:**
+- **zk:** the Zookeeper connection object
+- **parent:** path to the parent of all plans
+
+**Returns:** path to a task, if one is found, or nil if not"
+"It starts by getting the list of children (plans).  If this list is empty, it returns nil"
+(fact
+ (get-task-from-any-plan ..zk.. ..parent..) => nil
+ (provided
+  (zk/children ..zk.. ..parent..) => nil))
+
+"If a plan exists, we check that it is ready and then call `get-task` on it"
+(fact
+ (get-task-from-any-plan ..zk.. "/foo") => ..task..
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar")
+  (zk/exists ..zk.. "/foo/bar/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/bar") => ..task..))
+
+"If a plan is not ready, it should be skipped"
+(fact
+ (get-task-from-any-plan ..zk.. "/foo") => ..task..
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz")
+  (zk/exists ..zk.. "/foo/bar/ready") => nil
+  (zk/exists ..zk.. "/foo/baz/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/baz") => ..task..))
+
+"If a `get-task` does not return a task (e.g., no ready tasks), we move on to the next plan.
+This should be done lazily, so that additional plans must not be queried."
+(fact
+ (get-task-from-any-plan ..zk.. "/foo") => ..task..
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz" "quux")
+  (zk/exists ..zk.. "/foo/bar/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/bar") => nil
+  (zk/exists ..zk.. "/foo/baz/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/baz") => ..task..))
+
+[[:chapter {:title "Integration Testing"}]]
+[[:section {:title "Stress Test"}]]
+"The idea of this test is to stress zk_plan by launching N parallel worker threads (TBD)"
+

@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ev # Exit with nonzero exit code if anything fails; verbose
 
+rm -rf docs/
+
 SOURCE_BRANCH="master"
 TARGET_BRANCH="gh-pages"
 
