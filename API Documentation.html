@@ -1,0 +1,196 @@
+
+
+<!DOCTYPE html>
+<html >
+  <head>
+    <meta charset="UTF-8">
+    <meta name="google" value="notranslate">
+    <link rel="icon" type="image/png" href="img/favicon.png" />
+
+    <title>API Documentation</title>
+
+    
+  <link href='http://fonts.googleapis.com/css?family=Raleway:300' rel='stylesheet' type='text/css'>
+  <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/css/bootstrap.min.css">
+  <link rel="stylesheet" type="text/css" href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.3.0/css/font-awesome.min.css">
+
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/highlight.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/languages/clojure.min.js"></script>
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/styles/magula.min.css">
+
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.2/angular.min.js"></script>
+  <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.2/angular-cookies.min.js"></script>
+  <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.0/ui-bootstrap-tpls.min.js"></script>
+  <script type="text/javascript" src="js/angular-highlightjs.min.js"></script>
+
+  <link rel="stylesheet" type="text/css" href="css/rdash.min.css">
+  <link rel="stylesheet" type="text/css" href="css/scrollspy.css">
+
+
+  <script>
+    window.console = window.console || function(t) {};
+    window.open = function(){ console.log("window.open is disabled."); };
+    window.print   = function(){ console.log("window.print is disabled."); };
+  </script>
+
+  <script>
+    var app = angular.module('app', ['hljs']);
+  </script>
+  </head>
+
+  <body ng-app="app" data-spy="scroll" data-target=".scrollspy">
+  <!-- Fixed navbar -->
+    <nav class="navbar navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="index.html"><img src="img/logo-white.png"></a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li>
+              <a href="https://github.com/TODO/FIXME" target="_blank">Github</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </nav>
+
+
+  <div class="container row">
+    <div class="col-md-2 scrollspy pull-right">
+      <ul id="nav" class="nav hidden-xs hidden-sm" data-spy="affix">
+        <li><a href="#external-api">1  &nbsp;&nbsp; External API</a><ul class="nav"><li><a href="#create-plan">1.1  &nbsp;&nbsp; create-plan</a></li><li><a href="#add-task">1.2  &nbsp;&nbsp; add-task</a></li><li><a href="#get-task">1.3  &nbsp;&nbsp; get-task</a></li><li><a href="#perform-task">1.4  &nbsp;&nbsp; perform-task</a></li></ul></li><li><a href="#internal-implementation">2  &nbsp;&nbsp; Internal Implementation</a><ul class="nav"><li><a href="#set-initial-clj-data">2.1  &nbsp;&nbsp; set-initial-clj-data</a></li><li><a href="#add-dependency">2.2  &nbsp;&nbsp; add-dependency</a></li><li><a href="#mark-as-ready">2.3  &nbsp;&nbsp; mark-as-ready</a></li><li><a href="#take-ownership">2.4  &nbsp;&nbsp; take-ownership</a></li><li><a href="#execute-function">2.5  &nbsp;&nbsp; execute-function</a></li></ul></li>
+      </ul>
+    </div>
+    <div class="col-md-10" id="content">
+      <div class="jumbotron">
+        <div class="container">
+          <h1>API Documentation</h1>
+          <h4>generating a document from code</h4>
+        </div>
+      </div>
+      <section class="chapter" id="external-api"><h2 class="chapter">1  &nbsp;&nbsp; External API</h2><section class="section" id="create-plan"><h3 class="section">1.1  &nbsp;&nbsp; create-plan</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>parent:</strong> the parent node for the new plan</li></ul><p><strong>Returns:</strong> the path to the plan It calls zk/createn to create a new zookeeper node</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(create-plan ..zk.. ..parent..) =&gt; ..node..
+ (provided
+(zk/create ..zk.. ..prefix.. :persistent? true :sequential? true) =&gt; ..node..
+(str ..parent.. &quot;/plan-&quot;) =&gt; ..prefix..)</div></div></section><section class="section" id="add-task"><h3 class="section">1.2  &nbsp;&nbsp; add-task</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>plan:</strong> the path to the plan</li><li><strong>fn:</strong> the function to be executed</li><li><strong>arg-tasks:</strong> a sequence of task paths, which return values are to become arguments for fn</li></ul><p><strong>Returns:</strong> path to the new task</p></div><div class="paragraph"><p>It creates a sequential node under the plan</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(add-task ..zk.. ..plan.. ..fn.. []) =&gt; ..task..
+    (provided
+     (zk/create ..zk.. ..prefix.. :persistent? true :sequential? true) =&gt; ..task..
+     (str ..plan.. &quot;/task-&quot;) =&gt; ..prefix..
+     (set-initial-clj-data irrelevant irrelevant irrelevant) =&gt; irrelevant
+     (mark-as-ready irrelevant irrelevant) =&gt; irrelevant)</div></div><div class="paragraph"><p>It sets the task node's data to contain a serialization of fn</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(add-task ..zk.. ..plan.. ..fn.. []) =&gt; ..task..
+    (provided
+     (zk/create irrelevant irrelevant :persistent? true :sequential? true) =&gt; ..task..
+     (set-initial-clj-data ..zk.. ..task.. ..fn..) =&gt; irrelevant
+     (mark-as-ready irrelevant irrelevant) =&gt; irrelevant)</div></div><div class="paragraph"><p>It calls add-dependency for each arg-task</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(add-task ..zk.. ..plan.. ..fn.. [..arg1.. ..arg2.. ..arg3..]) =&gt; irrelevant
+    (provided
+     (zk/create irrelevant irrelevant :persistent? true :sequential? true) =&gt; ..task..
+     (set-initial-clj-data irrelevant irrelevant irrelevant) =&gt; irrelevant
+     (add-dependency ..zk.. ..arg1.. ..task..) =&gt; irrelevant
+     (add-dependency ..zk.. ..arg2.. ..task..) =&gt; irrelevant
+     (add-dependency ..zk.. ..arg3.. ..task..) =&gt; irrelevant
+     (mark-as-ready irrelevant irrelevant) =&gt; irrelevant)</div></div><div class="paragraph"><p>It adds a 'ready' node once definition is complete</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(add-task ..zk.. ..plan.. ..fn.. []) =&gt; irrelevant
+    (provided
+     (zk/create irrelevant irrelevant :persistent? true :sequential? true) =&gt; ..task..
+     (set-initial-clj-data irrelevant irrelevant irrelevant) =&gt; irrelevant
+     (mark-as-ready ..zk.. ..task..) =&gt; irrelevant)</div></div></section><section class="section" id="get-task"><h3 class="section">1.3  &nbsp;&nbsp; get-task</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>plan:</strong> the path to the plan</li></ul><p><strong>Returns:</strong> path to the task</p></div><div class="paragraph"><p>It returns nil if the plan is empty</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. ..plan..) =&gt; nil
+    (provided
+     (zk/children ..zk.. ..plan..) =&gt; nil)</div></div><div class="paragraph"><p>It returns a task if it does not have <code>dep-&#42;</code> or owner as children</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; &quot;/foo/bar&quot;
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot;)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;baz&quot; &quot;ready&quot; &quot;quux&quot;)
+     (take-ownership ..zk.. &quot;/foo/bar&quot;) =&gt; true)</div></div><div class="paragraph"><p>It does not return tasks that have <code>dep-&#42;</code> children</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; nil
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot;)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;baz&quot; &quot;ready&quot; &quot;quux&quot; &quot;dep-0001&quot;))</div></div><div class="paragraph"><p>It does not return tasks that have owner nodes</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; nil
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot;)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;baz&quot; &quot;quux&quot; &quot;ready&quot; &quot;owner&quot;))</div></div><div class="paragraph"><p>It does not take tasks that are not marked ready</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; nil
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot;)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;baz&quot; &quot;quux&quot;))</div></div><div class="paragraph"><p>It takes ownership over the task by adding an 'owner' node</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; &quot;/foo/bar&quot;
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot;)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;ready&quot;)
+     (take-ownership ..zk.. &quot;/foo/bar&quot;) =&gt; true)</div></div><div class="paragraph"><p>It moves to the next task if it is unable to take ownership</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; &quot;/foo/baz&quot;
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot; &quot;baz&quot;)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;ready&quot;)
+     (take-ownership ..zk.. &quot;/foo/bar&quot;) =&gt; false
+     (zk/children ..zk.. &quot;/foo/baz&quot;) =&gt; '(&quot;ready&quot;)
+     (take-ownership ..zk.. &quot;/foo/baz&quot;) =&gt; true)</div></div><div class="paragraph"><p>It looks up children lazily</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(get-task ..zk.. &quot;/foo&quot;) =&gt; &quot;/foo/bar&quot;
+    (provided
+     (zk/children ..zk.. &quot;/foo&quot;) =&gt; '(&quot;bar&quot; &quot;baz&quot; &quot;bat&quot;)
+     (zk/children ..zk.. irrelevant) =&gt; '(&quot;ready&quot;) :times 1
+     (take-ownership ..zk.. &quot;/foo/bar&quot;) =&gt; true)</div></div></section><section class="section" id="perform-task"><h3 class="section">1.4  &nbsp;&nbsp; perform-task</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>task:</strong> path to the task to perform</li></ul><p><strong>Returns:</strong> Nothing in particular</p></div><div class="paragraph"><p>If the task has a 'result' child and no 'prov-*' children, this means the task completed successfully, and the result has been distributed to all dependent tasks (if any). In such a case we remove the task.</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(perform-task ..zk.. &quot;/foo/bar&quot;) =&gt; irrelevant
+ (provided
+(zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;result&quot;)
+(get-clj-data irrelevant irrelevant) =&gt; 123
+(zk/delete-all ..zk.. &quot;/foo/bar&quot;) =&gt; irrelevant)</div></div><div class="paragraph"><p>If prov-* children exist, it reads the result and distributes it across the tasks depending on this task (the corresponding dep-* nodes)</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(perform-task ..zk.. &quot;/foo/bar&quot;) =&gt; irrelevant
+ (provided
+(zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;result&quot; &quot;prov-00000&quot; &quot;prov-0001&quot;)
+(get-clj-data ..zk.. &quot;/foo/bar/result&quot;) =&gt; 3.1415
+(propagate-result ..zk.. &quot;/foo/bar/prov-00000&quot; 3.1415) =&gt; irrelevant
+(propagate-result ..zk.. &quot;/foo/bar/prov-0001&quot; 3.1415) =&gt; irrelevant
+(zk/delete-all irrelevant irrelevant) =&gt; irrelevant)</div></div><div class="paragraph"><p>If the task does not have a result, we need to calculate the result ourselves. We call execute-function to get the result, and store it as the 'result' child.</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(perform-task ..zk.. &quot;/foo/bar&quot;) =&gt; irrelevant
+ (provided
+(zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '()
+(execute-function ..zk.. &quot;/foo/bar&quot;) =&gt; 1234.5
+                                      ; It should create a result child node and store the result to it
+(zk/create ..zk.. &quot;/foo/bar/result&quot; :persistent? true) =&gt; true
+(set-initial-clj-data ..zk.. &quot;/foo/bar/result&quot; 1234.5) =&gt; irrelevant
+(zk/delete-all irrelevant irrelevant) =&gt; irrelevant)</div></div></section></section><section class="chapter" id="internal-implementation"><h2 class="chapter">2  &nbsp;&nbsp; Internal Implementation</h2><section class="section" id="set-initial-clj-data"><h3 class="section">2.1  &nbsp;&nbsp; set-initial-clj-data</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>node:</strong> the node</li></ul><p><strong>Returns:</strong> Nothing in particular</p></div><div class="paragraph"><p>It calls zk/set-data to update the data</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(set-initial-clj-data ..zk.. ..node.. ..data..) =&gt; irrelevant
+    (provided
+     (pr-str ..data..) =&gt; ..str..
+     (to-bytes ..str..) =&gt; ..bytes..
+     (zk/set-data ..zk.. ..node.. ..bytes.. irrelevant) =&gt; irrelevant)</div></div><div class="paragraph"><p>It derives the version number from the existing version</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(set-initial-clj-data ..zk.. ..node.. ..data..) =&gt; irrelevant
+    (provided
+     (zk/set-data irrelevant irrelevant irrelevant 0) =&gt; irrelevant)</div></div></section><section class="section" id="add-dependency"><h3 class="section">2.2  &nbsp;&nbsp; add-dependency</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>from:</strong> path of the task that provides the dependency</li><li><strong>to:</strong> path of the task that depends on 'from'</li></ul><p><strong>Returns:</strong> nothing in particular</p></div><div class="paragraph"><p>It adds sequential children to both the 'from' and the 'to' tasks</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(add-dependency ..zk.. &quot;/path/from&quot; &quot;/path/to&quot;) =&gt; irrelevant
+    (provided
+     (zk/create ..zk.. &quot;/path/from/prov-&quot; :persistent? true :sequential? true) =&gt; irrelevant
+     (zk/create ..zk.. &quot;/path/to/dep-&quot; :persistent? true :sequential? true) =&gt; irrelevant
+     (set-initial-clj-data irrelevant irrelevant irrelevant) =&gt; irrelevant)</div></div><div class="paragraph"><p>It sets the data of the prov child to be the path to the corresponding dep child</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(add-dependency ..zk.. &quot;/path/from&quot; &quot;/path/to&quot;) =&gt; irrelevant
+    (provided
+     (zk/create ..zk.. &quot;/path/from/prov-&quot; :persistent? true :sequential? true) =&gt; ..from-link..
+     (zk/create ..zk.. &quot;/path/to/dep-&quot; :persistent? true :sequential? true) =&gt; ..to-link..
+     (set-initial-clj-data ..zk.. ..from-link.. ..to-link..) =&gt; irrelevant)</div></div></section><section class="section" id="mark-as-ready"><h3 class="section">2.3  &nbsp;&nbsp; mark-as-ready</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>task:</strong> the task to be marked as ready</li></ul><p><strong>Returns:</strong> nothing in particular</p></div><div class="paragraph"><p>It creates a child node named 'ready'</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(mark-as-ready ..zk.. &quot;/foo/bar&quot;) =&gt; irrelevant
+    (provided
+     (zk/create ..zk.. &quot;/foo/bar/ready&quot; :persistent? true) =&gt; true)</div></div></section><section class="section" id="take-ownership"><h3 class="section">2.4  &nbsp;&nbsp; take-ownership</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>task:</strong> the task to take ownership over</li></ul><p><strong>Returns:</strong> whether or not we managed to take ownership</p></div><div class="paragraph"><p>It tries to add an ephemeral 'owner' node to the task, and return whether it was successful</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(take-ownership ..zk.. &quot;/foo/bar&quot;) =&gt; ..result..
+    (provided
+     (zk/create ..zk.. &quot;/foo/bar/owner&quot; :persistent? false) =&gt; ..result..)</div></div></section><section class="section" id="execute-function"><h3 class="section">2.5  &nbsp;&nbsp; execute-function</h3><div class="paragraph"><p><strong>Parameters:</strong></p><ul><li><strong>zk:</strong> the Zookeeper connection object</li><li><strong>task:</strong> path to the task node containing arguments for the function</li></ul><p><strong>Returns:</strong> the return value from the task's function</p></div><div class="paragraph"><p>It reads the function definition from the content of the task node. If no parameters exist in the task it executes the function without parameters.</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(execute-function ..zk.. ..task..) =&gt; 3
+    (provided
+     (get-clj-data ..zk.. ..task..) =&gt; '(fn [] 3)
+     (zk/children ..zk.. ..task..) =&gt; '(&quot;foo&quot; &quot;bar&quot;))</div></div><div class="paragraph"><p>It passes the task arguments to the function</p></div><div class="code"><div hljs="hljs" language="clojure" no-escape="no-escape">(execute-function ..zk.. &quot;/foo/bar&quot;) =&gt; [1 2 3]
+    (provided
+     (get-clj-data ..zk.. &quot;/foo/bar&quot;) =&gt; '(fn [&amp; args] args)
+     (zk/children ..zk.. &quot;/foo/bar&quot;) =&gt; '(&quot;arg-00001&quot; &quot;arg-00002&quot; &quot;arg-00000&quot;)
+     (get-clj-data ..zk.. &quot;/foo/bar/arg-00000&quot;) =&gt; 1
+     (get-clj-data ..zk.. &quot;/foo/bar/arg-00001&quot;) =&gt; 2
+     (get-clj-data ..zk.. &quot;/foo/bar/arg-00002&quot;) =&gt; 3)</div></div></section></section>
+    </div>
+</div><!--end of .container-->
+
+</body>
+
+<script>
+  $('#nav').affix({
+    offset: {
+        top: $('#nav').offset().top,
+        bottom: $('footer').outerHeight(true) + $('.application').outerHeight(true) + 40
+    }});
+</script>
+
+
+<script>
+  if (document.location.search.match(/type=embed/gi)) {
+    window.parent.postMessage("resize", "*");
+  }
+</script>
+</body>
+</html>
