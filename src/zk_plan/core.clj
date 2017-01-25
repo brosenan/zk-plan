@@ -37,24 +37,30 @@
         tasks (map #(str plan "/" %) task-names)
         valid-tasks (filter (fn [task]
                               (let [task-props (zk/children zk task)]
-                                (and (not (some #(or (re-matches #"dep-[0-9]+" %)
+                                (and task-props
+                                     (not (some #(or (re-matches #"dep-[0-9]+" %)
                                                      (= "owner" %)) task-props))
-                                     (contains? (set task-props) "ready")
-                                     (take-ownership zk task)))) tasks)]
-    (first valid-tasks)))
+                                     (contains? (set task-props) "ready")))) tasks)]
+    (let [task (first valid-tasks)]
+      (if (and task
+               (take-ownership zk task))
+        task))))
 
 
 (defn get-clj-data [zk node]
-  (read-string (String. (zk/data zk node) "UTF-8")))
+  (let [data (:data (zk/data zk node))]
+    (read-string (String. data "UTF-8"))))
 
 (defn execute-function [zk node]
   (let [func (get-clj-data zk node)
-        children (zk/children zk node)
-        argnodes (filter #(re-matches #"arg-\d+" %) children)
-        argnodes (sort argnodes)
-        argnodes (map #(str node "/" %) argnodes)
-        vals (map #(get-clj-data zk %) argnodes)]
-    (apply (eval func) vals)))
+        vals (->> (zk/children zk node)
+                  (filter #(re-matches #"arg-\d+" %))
+                  sort
+                  (map #(str node "/" %))
+                  (map #(get-clj-data zk %)))
+        func' (eval func)]
+    (let [res (apply func' vals)]
+      res)))
 
 (defn propagate-result [zk prov value]
   (let [dep (get-clj-data zk prov)
@@ -89,9 +95,16 @@
 ))
 
 (defn calc-sleep-time [attrs count]
-  (min (int (* (:initial attrs 100)
-               (reduce * (repeat count (:increase attrs 1.5)))))
-       (:max attrs 10000)))
+  (let [max (:max attrs 10000)]
+    (loop [val (:initial attrs 100)
+           i 0]
+      (if (> val max)
+        max
+                                        ; else
+        (if (< i count)
+          (recur (* val (:increase attrs 1.5)) (inc i))
+                                        ; else
+          (int val))))))
 
 (defn worker [zk parent attrs]
   (loop [count 0]
@@ -103,3 +116,7 @@
           (Thread/sleep (calc-sleep-time attrs count))
           (recur (inc count)))))))
 
+
+(defn plan-completed? [zk plan]
+  (not (some #(re-matches #"task-\d+" %)
+             (zk/children zk plan))))

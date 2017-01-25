@@ -103,6 +103,26 @@ We retry until we get a task."
   (calc-sleep-time ..attrs.. 1) => 2
   (perform-task irrelevant irrelevant) => irrelevant))
 
+[[:section {:title "plan-completed?"}]]
+"
+**Parameters:**
+- **zk:** the Zookeeper connection object
+- **plan:** the path to the plan
+
+**Returns:** whether the plan is completed"
+"It returns true if the plan has no tasks in it"
+(fact
+ (plan-completed? ..zk.. ..plan..) => true
+ (provided
+  (zk/children ..zk.. ..plan..) => '("foo" "bar")))
+
+"It returns false if there is at least one `task-*` child"
+(fact
+ (plan-completed? ..zk.. ..plan..) => false
+ (provided
+  (zk/children ..zk.. ..plan..) => '("foo" "task-39893" "bar")))
+
+
 [[:chapter {:title "Internal Implementation"}]]
 [[:section {:title "get-task"}]]
 "
@@ -148,15 +168,14 @@ We retry until we get a task."
        (zk/children ..zk.. "/foo") => '("bar")
        (zk/children ..zk.. "/foo/bar") => '("ready")
        (take-ownership ..zk.. "/foo/bar") => true))
-"It moves to the next task if it is unable to take ownership"
+"It return nil if it is unable to take ownership"
 (fact
-      (get-task ..zk.. "/foo") => "/foo/baz"
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar" "baz")
-       (zk/children ..zk.. "/foo/bar") => '("ready")
-       (take-ownership ..zk.. "/foo/bar") => false
-       (zk/children ..zk.. "/foo/baz") => '("ready")
-       (take-ownership ..zk.. "/foo/baz") => true))
+ (get-task ..zk.. "/foo") => nil
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz")
+  (zk/children ..zk.. "/foo/bar") => '("ready")
+  (take-ownership ..zk.. "/foo/bar") => false))
+
 "It looks up children lazily"
 (fact
       (get-task ..zk.. "/foo") => "/foo/bar"
@@ -165,6 +184,14 @@ We retry until we get a task."
        (zk/children ..zk.. irrelevant) => '("ready") :times 1
        (take-ownership ..zk.. "/foo/bar") => true))
 
+"In case a task is removed before we got the chance to examine it, we move to the next task"
+(fact
+      (get-task ..zk.. "/foo") => "/foo/baz"
+      (provided
+       (zk/children ..zk.. "/foo") => '("bar" "baz")
+       (zk/children ..zk.. "/foo/bar") => false
+       (zk/children ..zk.. "/foo/baz") => '("ready")
+       (take-ownership ..zk.. "/foo/baz") => true))
 
 [[:section {:title "perform-task"}]]
 "
@@ -184,7 +211,7 @@ In such a case we remove the task."
   (get-clj-data irrelevant irrelevant) => 123
   (zk/delete-all ..zk.. "/foo/bar") => irrelevant))
 
-"If prov-* children exist, it reads the result and distributes it across the tasks
+"If `prov-*` children exist, it reads the result and distributes it across the tasks
 depending on this task (the corresponding dep-* nodes)"
 (fact
  (perform-task ..zk.. "/foo/bar") => irrelevant
@@ -389,13 +416,17 @@ This should be done lazily, so that additional plans must not be queried."
 (fact
  (calc-sleep-time {} 20) => 10000)
 
+"`:max` is applied at any step, such that the function does not overflow even with high `count` values"
+(fact
+ (calc-sleep-time {:max 1000} 100) => 1000)
+
 [[:chapter {:title "Integration Testing"}]]
 [[:section {:title "Stress Test"}]]
 "The idea of this test is to stress zk_plan by launching `N` parallel worker threads to execute a randomized
 plan with `M` tasks, each depending on `K` preceding tasks (if such exist)."
-(def N 2) ; the number of workers
-(def M 10) ; the number of tasks
-(def K 2) ; the number of dependencies per task
+(def N 10) ; the number of workers
+(def M 100) ; the number of tasks
+(def K 10) ; the number of dependencies per task
 
 "The tasks work against a map of `M` atoms, one atom per each task.  These atoms count the workers working on this task."
 (def worker-counters (into {} (map (fn [i] [i (atom 0)]) (range M))))
@@ -404,31 +435,37 @@ plan with `M` tasks, each depending on `K` preceding tasks (if such exist)."
 After incrementing, it checks that the value is 1, that is, no other worker is working on the same task.
 The function compares its arguments against the `expected` vector, and returns its number.
 The function below creates a task function (s-expression) for task `i`"
-(defn stress-task-func [i expected] `(fn [& args]
-                                (let [my-atom (worker-counters ~i)]
-                                  (try
-                                    (swap! my-atom inc)
-                                    (if (not= @my-atom 1)
-                                      (throw (Exception. (str "Bad counter value: " @my-atom))))
-                                    (if (not= args ~expected)
-                                      (throw (Exception. (str "Bad arguments.  Expected: " ~expected "  Actual: " args))))
-                                    (Thread/sleep 100)
-                                    (finally 
-                                      (swap! my-atom dec))))))
+(defn stress-task-func [i expected]
+  `(fn [& ~'args]
+     (let [~'my-atom (worker-counters ~i)]
+       (println ~i)
+       (try
+         (swap! ~'my-atom inc)
+         (if (not= @~'my-atom 1)
+           (throw (Exception. (str "Bad counter value: " @~'my-atom))))
+         (if (not= (vec~'args) ~(vec expected))
+           (throw (Exception. (str "Bad arguments.  Expected: " ~(vec expected) "  Actual: " ~'args))))
+         (Thread/sleep 100)
+         (finally 
+           (swap! ~'my-atom dec)))
+       ~i)))
 
 "We build the plan.  The first `K` tasks are built without arguments.
 The other `M-K` tasks are built with `K` arguments each, which are randomly selected from the range `[0,i)`"
 (defn build-stress-plan [zk parent]
   (let [plan (create-plan zk parent)]
+
     (loop [tasks {}
            i 0]
-      (let [next-task (if (< i K)
-                        (add-task zk plan (stress-task-func i nil) [])
+      (if (< i M)
+        (let [next-task (if (< i K)
+                          (add-task zk plan (stress-task-func i nil) [])
                                         ; else
-                        (let [selected (take K (shuffle (range (dec i))))]
-                          (add-task zk plan (stress-task-func i selected) (map tasks selected))))]
-        (recur (assoc tasks i next-task) (inc i))))
-    (mark-as-ready zk plan)))
+                          (let [selected (take K (shuffle (range i)))]
+                            (add-task zk plan (stress-task-func i selected) (map tasks selected))))]
+          (recur (assoc tasks i next-task) (inc i)))))
+    (mark-as-ready zk plan)
+    plan))
 
 "We now deploy `N` workers to execute the plan."
 (defn start-stress-workers [zk parent]
@@ -443,20 +480,27 @@ The other `M-K` tasks are built with `K` arguments each, which are randomly sele
 "To stop all threads we simply `.join` them"
 (defn join-stress-workers [threads]
   (doseq [thread threads]
-    (.join thread)))
+    (.stop thread)))
 
 "Puttint this all together:
 - Connect to an actual Zookeeper
-- Create a parent: `/stress`
+- Clear the parent: `/stress` if exists
+- (Re) Create the parent
 - Start the workers
 - Create the plan
-- Wait for a while...
-- Stop the workers"
-(fact
- (let [zk (zk/connect "127.0.0.1:2181")
-       parent "/stress"]
-   (zk/create zk parent :persistent? true)
-   (let [threads (start-stress-workers zk parent)]
-     (build-stress-plan zk parent)
-     (Thread/sleep 1000)
-     (join-stress-workers threads))))
+- Wait until the plan is complete
+- Stop the workers
+
+(uncomment the block below to make it run)"
+(comment (fact
+          (let [zk (zk/connect "127.0.0.1:2181")
+                parent "/stress"]
+            (zk/delete-all zk "/stress")
+            (zk/create zk parent :persistent? true)
+            (let [threads (start-stress-workers zk parent)
+                  plan (build-stress-plan zk parent)]
+              (loop []
+                (when-not (plan-completed? zk plan)
+                  (Thread/sleep 100)
+                  (recur)))
+              (join-stress-workers threads)))))
