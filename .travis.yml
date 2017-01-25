@@ -1,2 +1,8 @@
 language: clojure
-script: lein midje
+script:
+  - lein midje
+  - bash ./deploy.sh
+env:
+  global:
+  - ENCRYPTION_LABEL: "b5532630490b"
+  - COMMIT_AUTHOR_EMAIL: "brosenan@gmail.com"
