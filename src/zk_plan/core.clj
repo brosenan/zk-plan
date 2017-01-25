@@ -56,7 +56,12 @@
         vals (map #(get-clj-data zk %) argnodes)]
     (apply (eval func) vals)))
 
-(defn propagate-result [zk prov result])
+(defn propagate-result [zk prov value]
+  (let [dep (get-clj-data zk prov)
+        arg (str/replace dep #"(.*)/dep-(\d+)" "$1/arg-$2")]
+    (zk/create zk arg :persistent? true)
+    (set-initial-clj-data zk arg value)
+    (zk/delete zk dep)))
 
 (defn prov? [key]
   (re-matches #"prov-\d+" key))
@@ -75,9 +80,5 @@
       (propagate-result zk (str task "/" prov) res)))
   (zk/delete-all zk task))
 
-(comment   (let [func (get-clj-data zk task)
-        result (execute-function zk func task)
-        res-node (str task "/result")]
-    (zk/create zk res-node :persistent? true)
-    (set-initial-clj-data zk res-node result)))
+
 

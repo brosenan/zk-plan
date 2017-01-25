@@ -268,3 +268,24 @@ If no parameters exist in the task it executes the function without parameters."
        (get-clj-data ..zk.. "/foo/bar/arg-00000") => 1
        (get-clj-data ..zk.. "/foo/bar/arg-00001") => 2
        (get-clj-data ..zk.. "/foo/bar/arg-00002") => 3))
+
+[[:section {:title "propagate-result"}]]
+"
+**Parameters:**
+- **zk:** the Zookeeper connection object
+- **prov:** path to the `prov-*` node to propagate
+- **value:** the value to be propagated
+
+**Returns:** nothing in particular"
+"It does the following:
+- reads the path of the `dep-*` node from the `prov-*` node
+- create an `arg-*` node at the same task and with the same serial number as the `dep-*` node
+- set the value of the `arg-*` node to be `value`
+- remove the `dep-*` node"
+(fact
+ (propagate-result ..zk.. ..prov.. ..value..) => irrelevant
+ (provided
+  (get-clj-data ..zk.. ..prov..) => "/foo/bar/dep-01472"
+  (zk/create ..zk.. "/foo/bar/arg-01472" :persistent? true) => true
+  (set-initial-clj-data ..zk.. "/foo/bar/arg-01472" ..value..) => irrelevant
+  (zk/delete ..zk.. "/foo/bar/dep-01472") => irrelevant))
