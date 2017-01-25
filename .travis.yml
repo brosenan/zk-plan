@@ -1,7 +1,6 @@
 language: clojure
 script:
   - lein midje
-  - bash ./deploy.sh
 sudo: false
 env:
   global:
