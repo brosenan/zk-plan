@@ -391,5 +391,72 @@ This should be done lazily, so that additional plans must not be queried."
 
 [[:chapter {:title "Integration Testing"}]]
 [[:section {:title "Stress Test"}]]
-"The idea of this test is to stress zk_plan by launching N parallel worker threads (TBD)"
+"The idea of this test is to stress zk_plan by launching `N` parallel worker threads to execute a randomized
+plan with `M` tasks, each depending on `K` preceding tasks (if such exist)."
+(def N 2) ; the number of workers
+(def M 10) ; the number of tasks
+(def K 2) ; the number of dependencies per task
 
+"The tasks work against a map of `M` atoms, one atom per each task.  These atoms count the workers working on this task."
+(def worker-counters (into {} (map (fn [i] [i (atom 0)]) (range M))))
+
+"Each task begins by incrementing the atom, then sleeps for a while, then decrements the atom.
+After incrementing, it checks that the value is 1, that is, no other worker is working on the same task.
+The function compares its arguments against the `expected` vector, and returns its number.
+The function below creates a task function (s-expression) for task `i`"
+(defn stress-task-func [i expected] `(fn [& args]
+                                (let [my-atom (worker-counters ~i)]
+                                  (try
+                                    (swap! my-atom inc)
+                                    (if (not= @my-atom 1)
+                                      (throw (Exception. (str "Bad counter value: " @my-atom))))
+                                    (if (not= args ~expected)
+                                      (throw (Exception. (str "Bad arguments.  Expected: " ~expected "  Actual: " args))))
+                                    (Thread/sleep 100)
+                                    (finally 
+                                      (swap! my-atom dec))))))
+
+"We build the plan.  The first `K` tasks are built without arguments.
+The other `M-K` tasks are built with `K` arguments each, which are randomly selected from the range `[0,i)`"
+(defn build-stress-plan [zk parent]
+  (let [plan (create-plan zk parent)]
+    (loop [tasks {}
+           i 0]
+      (let [next-task (if (< i K)
+                        (add-task zk plan (stress-task-func i nil) [])
+                                        ; else
+                        (let [selected (take K (shuffle (range (dec i))))]
+                          (add-task zk plan (stress-task-func i selected) (map tasks selected))))]
+        (recur (assoc tasks i next-task) (inc i))))
+    (mark-as-ready zk plan)))
+
+"We now deploy `N` workers to execute the plan."
+(defn start-stress-workers [zk parent]
+  (let [threads (map (fn [_] (Thread. (fn []
+                                        (loop []
+                                          (worker zk parent {})
+                                          (recur))))) (range N))]
+    (doseq [thread threads]
+      (.start thread))
+    threads))
+
+"To stop all threads we simply `.join` them"
+(defn join-stress-workers [threads]
+  (doseq [thread threads]
+    (.join thread)))
+
+"Puttint this all together:
+- Connect to an actual Zookeeper
+- Create a parent: `/stress`
+- Start the workers
+- Create the plan
+- Wait for a while...
+- Stop the workers"
+(fact
+ (let [zk (zk/connect "127.0.0.1:2181")
+       parent "/stress"]
+   (zk/create zk parent :persistent? true)
+   (let [threads (start-stress-workers zk parent)]
+     (build-stress-plan zk parent)
+     (Thread/sleep 1000)
+     (join-stress-workers threads))))
