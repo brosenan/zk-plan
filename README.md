@@ -8,6 +8,9 @@ It is based on the notion of a *plan*, which is a directed acyclic graph (DAG) o
 ## Status
 **zk-plan** is in its very early stages of development.
 
+## Documentation
+Please refer to [our documentation website](https://brosenan.github.io/zk-plan/).
+
 ## How to run the tests
 
 `lein midje` will run all tests.
