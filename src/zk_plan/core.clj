@@ -88,7 +88,10 @@
     (some identity tasks)
 ))
 
-(defn calc-sleep-time [attrs count])
+(defn calc-sleep-time [attrs count]
+  (min (int (* (:initial attrs 100)
+               (reduce * (repeat count (:increase attrs 1.5)))))
+       (:max attrs 10000)))
 
 (defn worker [zk parent attrs]
   (loop [count 0]

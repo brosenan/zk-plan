@@ -62,6 +62,19 @@ It calls zk/createn to create a new zookeeper node"
        (set-initial-clj-data irrelevant irrelevant irrelevant) => irrelevant
        (mark-as-ready ..zk.. ..task..) => irrelevant))
 
+[[:section {:title "mark-as-ready"}]]
+"
+**Parameters:**
+- **zk:** the Zookeeper connection object
+- **task:** the task to be marked as ready
+
+**Returns:** nothing in particular"
+"It creates a child node named 'ready'"
+(fact
+      (mark-as-ready ..zk.. "/foo/bar") => irrelevant
+      (provided
+       (zk/create ..zk.. "/foo/bar/ready" :persistent? true) => true))
+
 [[:section {:title "worker"}]]
 "
 **Parameters:**
@@ -240,23 +253,6 @@ We call execute-function to get the result, and store it as the 'result' child."
        (zk/create ..zk.. "/path/to/dep-" :persistent? true :sequential? true) => ..to-link..
        (set-initial-clj-data ..zk.. ..from-link.. ..to-link..) => irrelevant))
 
-
-
-
-
-[[:section {:title "mark-as-ready"}]]
-"
-**Parameters:**
-- **zk:** the Zookeeper connection object
-- **task:** the task to be marked as ready
-
-**Returns:** nothing in particular"
-"It creates a child node named 'ready'"
-(fact
-      (mark-as-ready ..zk.. "/foo/bar") => irrelevant
-      (provided
-       (zk/create ..zk.. "/foo/bar/ready" :persistent? true) => true))
-
 [[:section {:title "take-ownership"}]]
 "
 **Parameters:**
@@ -358,6 +354,40 @@ This should be done lazily, so that additional plans must not be queried."
   (get-task ..zk.. "/foo/bar") => nil
   (zk/exists ..zk.. "/foo/baz/ready") => {:some-key "value"}
   (get-task ..zk.. "/foo/baz") => ..task..))
+
+[[:section {:title "calc-sleep-time"}]]
+"
+**Parameters:**
+- **attrs:** a map of attributes based on which we calculate the sleep time, including:
+  - `:initial` - the value to be returned for `count` 0 (default: 100ms)
+  - `:increase` - the increase factor, by which the value gets multiplied each time (default: 1.5)
+  - `:max` - the maximum sleep time (default: 10 seconds)
+- **count:** the number of times we already had to wait before getting the last task
+
+**Returns:** the number of milliseconds to sleep"
+"For `count` = 0, returns the `:initial`"
+(fact
+ (calc-sleep-time {:initial 1234} 0) => 1234)
+
+"`:initial` defaults to 100"
+(fact
+ (calc-sleep-time {} 0) => 100)
+
+"For `count` > 0, the `:initial` value is multiplied by `:increase` to the power of `count`"
+(fact
+ (calc-sleep-time {:increase 2 :initial 1} 8) => 256)
+
+"`:increase` defaults to 1.5"
+(fact
+ (calc-sleep-time {} 1) => 150)
+
+"The value is capped by `:max`"
+(fact
+ (calc-sleep-time {:max 300} 20) => 300)
+
+"`:max` defaults to 10000"
+(fact
+ (calc-sleep-time {} 20) => 10000)
 
 [[:chapter {:title "Integration Testing"}]]
 [[:section {:title "Stress Test"}]]
