@@ -133,65 +133,77 @@ We retry until we get a task."
 **Returns:** path to the task"
 "It returns nil if the plan is empty"
 (fact
-      (get-task ..zk.. ..plan..) => nil
-      (provided
-       (zk/children ..zk.. ..plan..) => nil))
+ (get-task ..zk.. ..plan..) => nil
+ (provided
+  (zk/children ..zk.. ..plan..) => nil))
 "It returns a task if it does not have `dep-*` or owner as children"
 (fact
-      (get-task ..zk.. "/foo") => "/foo/bar"
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar")
-       (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux")
-       (take-ownership ..zk.. "/foo/bar") => true))
+ (get-task ..zk.. "/foo") => "/foo/bar"
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar")
+  (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux")
+  (take-ownership ..zk.. "/foo/bar") => true))
 "It does not return tasks that have `dep-*` children"
-(fact
-      (get-task ..zk.. "/foo") => nil
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar")
-       (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux" "dep-0001")))
-"It does not return tasks that have owner nodes"
-(fact
-      (get-task ..zk.. "/foo") => nil
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar")
-       (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "ready" "owner")))
-"It does not take tasks that are not marked ready"
-(fact
-      (get-task ..zk.. "/foo") => nil
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar")
-       (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
-"It takes ownership over the task by adding an 'owner' node"
-(fact
-      (get-task ..zk.. "/foo") => "/foo/bar"
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar")
-       (zk/children ..zk.. "/foo/bar") => '("ready")
-       (take-ownership ..zk.. "/foo/bar") => true))
-"It return nil if it is unable to take ownership"
 (fact
  (get-task ..zk.. "/foo") => nil
  (provided
+  (zk/children ..zk.. "/foo") => '("bar")
+  (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux" "dep-0001")))
+"It does not return tasks that have owner nodes"
+(fact
+ (get-task ..zk.. "/foo") => nil
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar")
+  (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "ready" "owner")))
+"It does not take tasks that are not marked ready"
+(fact
+ (get-task ..zk.. "/foo") => nil
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar")
+  (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
+"It takes ownership over the task by adding an 'owner' node"
+(fact
+ (get-task ..zk.. "/foo") => "/foo/bar"
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar")
+  (zk/children ..zk.. "/foo/bar") => '("ready")
+  (take-ownership ..zk.. "/foo/bar") => true))
+"It moves to the next one if it is unable to take ownership"
+(fact
+ (get-task ..zk.. "/foo") => "/foo/baz"
+ (provided
   (zk/children ..zk.. "/foo") => '("bar" "baz")
   (zk/children ..zk.. "/foo/bar") => '("ready")
-  (take-ownership ..zk.. "/foo/bar") => false))
+  (take-ownership ..zk.. "/foo/bar") => false
+  (zk/children ..zk.. "/foo/baz") => '("ready")
+  (take-ownership ..zk.. "/foo/baz") => true))
 
 "It looks up children lazily"
 (fact
-      (get-task ..zk.. "/foo") => "/foo/bar"
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar" "baz" "bat")
-       (zk/children ..zk.. irrelevant) => '("ready") :times 1
-       (take-ownership ..zk.. "/foo/bar") => true))
+ (get-task ..zk.. "/foo") => "/foo/bar"
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz" "bat")
+  (zk/children ..zk.. irrelevant) => '("ready") :times 1
+  (take-ownership ..zk.. "/foo/bar") => true))
 
 "In case a task is removed before we got the chance to examine it, we move to the next task"
 (fact
-      (get-task ..zk.. "/foo") => "/foo/baz"
-      (provided
-       (zk/children ..zk.. "/foo") => '("bar" "baz")
-       (zk/children ..zk.. "/foo/bar") => false
-       (zk/children ..zk.. "/foo/baz") => '("ready")
-       (take-ownership ..zk.. "/foo/baz") => true))
+ (get-task ..zk.. "/foo") => "/foo/baz"
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz")
+  (zk/children ..zk.. "/foo/bar") => false
+  (zk/children ..zk.. "/foo/baz") => '("ready")
+  (take-ownership ..zk.. "/foo/baz") => true))
+
+"If it comes across an empty task, it removes it and moves on"
+(fact
+ (get-task ..zk.. "/foo") => "/foo/baz"
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz")
+  (zk/children ..zk.. "/foo/bar") => nil
+  (zk/delete ..zk.. "/foo/bar") => irrelevant
+  (zk/children ..zk.. "/foo/baz") => '("ready")
+  (take-ownership ..zk.. "/foo/baz") => true))
 
 [[:section {:title "perform-task"}]]
 "
@@ -431,6 +443,9 @@ plan with `M` tasks, each depending on `K` preceding tasks (if such exist)."
 "The tasks work against a map of `M` atoms, one atom per each task.  These atoms count the workers working on this task."
 (def worker-counters (into {} (map (fn [i] [i (atom 0)]) (range M))))
 
+"Each task will also report it completed its work by adding its ordinal number to this set."
+(def workers-completed (atom #{}))
+
 "Each task begins by incrementing the atom, then sleeps for a while, then decrements the atom.
 After incrementing, it checks that the value is 1, that is, no other worker is working on the same task.
 The function compares its arguments against the `expected` vector, and returns its number.
@@ -446,6 +461,7 @@ The function below creates a task function (s-expression) for task `i`"
          (if (not= (vec~'args) ~(vec expected))
            (throw (Exception. (str "Bad arguments.  Expected: " ~(vec expected) "  Actual: " ~'args))))
          (Thread/sleep 100)
+         (swap! workers-completed #(conj % ~i))
          (finally 
            (swap! ~'my-atom dec)))
        ~i)))
@@ -467,11 +483,16 @@ The other `M-K` tasks are built with `K` arguments each, which are randomly sele
     (mark-as-ready zk plan)
     plan))
 
-"We now deploy `N` workers to execute the plan."
+"We now deploy `N` workers to execute the plan.
+Each thread runs the `worker` function repeatedly.
+In case of an exception thrown from the worker, we report it, but move on to call `worker` again."
 (defn start-stress-workers [zk parent]
   (let [threads (map (fn [_] (Thread. (fn []
                                         (loop []
-                                          (worker zk parent {})
+                                          (try
+                                            (worker zk parent {})
+                                            (catch Exception e
+                                              (.stackTrace e)))
                                           (recur))))) (range N))]
     (doseq [thread threads]
       (.start thread))

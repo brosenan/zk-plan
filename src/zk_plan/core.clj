@@ -34,17 +34,25 @@
 
 (defn get-task [zk plan]
   (let [task-names (zk/children zk plan)
-        tasks (map #(str plan "/" %) task-names)
-        valid-tasks (filter (fn [task]
-                              (let [task-props (zk/children zk task)]
-                                (and task-props
-                                     (not (some #(or (re-matches #"dep-[0-9]+" %)
-                                                     (= "owner" %)) task-props))
-                                     (contains? (set task-props) "ready")))) tasks)]
-    (let [task (first valid-tasks)]
-      (if (and task
-               (take-ownership zk task))
-        task))))
+        tasks (map #(str plan "/" %) task-names)]
+    (loop [tasks tasks]
+            (if (empty? tasks)
+              nil
+              ; else
+              (let [task (first tasks)
+                    task-props (zk/children zk task)]
+                (if (= task-props nil)
+                  (do (zk/delete zk task)
+                      (recur (rest tasks)))
+                                        ; else
+                  (if (and task-props
+                           (not (some #(or (re-matches #"dep-\d+" %)
+                                           (= "owner" %)) task-props))
+                           (contains? (set task-props) "ready")
+                           (take-ownership zk task))
+                    task
+                                        ; else
+                    (recur (rest tasks)))))))))
 
 
 (defn get-clj-data [zk node]
