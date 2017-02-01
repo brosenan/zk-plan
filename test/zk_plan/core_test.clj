@@ -542,5 +542,8 @@ In case of an exception thrown from the worker, we report it, but move on to cal
                 (when-not (plan-completed? zk plan)
                   (Thread/sleep 100)
                   (recur)))
+              (doseq [m (range M)]
+                (when-not (contains? @workers-completed m)
+                  (println "Task " m " was not completed")))
               (join-stress-workers threads)))))
          
