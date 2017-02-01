@@ -90,7 +90,8 @@ It calls zk/createn to create a new zookeeper node"
  (worker ..zk.. ..parent.. ..attrs..) => irrelevant
  (provided
   (get-task-from-any-plan ..zk.. ..parent..) => "/foo/bar"
-  (perform-task ..zk.. "/foo/bar") => irrelevant))
+  (perform-task ..zk.. "/foo/bar") => irrelevant
+  (zk/exists irrelevant irrelevant) => nil))
 
 "If `get-task-from-any-plan` returns `nil`, we call `calc-sleep-time` to calculate for how long
 we need to sleep before the next retry.
@@ -101,7 +102,18 @@ We retry until we get a task."
   (get-task-from-any-plan ..zk.. ..parent..) =streams=> [nil nil "/foo/bar"]
   (calc-sleep-time ..attrs.. 0) => 1
   (calc-sleep-time ..attrs.. 1) => 2
-  (perform-task irrelevant irrelevant) => irrelevant))
+  (perform-task irrelevant irrelevant) => irrelevant
+  (zk/exists irrelevant irrelevant) => nil))
+
+"If `perform-task` exists (abnomally) before clearing the task node, 
+we remove the `owner` node from it to allow another task to complete the job"
+(fact
+ (worker ..zk.. ..parent.. ..attrs..) => (throws Exception)
+ (provided
+  (get-task-from-any-plan ..zk.. ..parent..) => "/foo/bar"
+  (perform-task ..zk.. "/foo/bar") =throws=> (Exception.)
+  (zk/exists ..zk.. "/foo/bar") => {:some "thing"}
+  (zk/delete ..zk.. "/foo/bar/owner") => irrelevant))
 
 [[:section {:title "plan-completed?"}]]
 "
@@ -498,7 +510,7 @@ In case of an exception thrown from the worker, we report it, but move on to cal
                                           (try
                                             (worker zk parent {})
                                             (catch Exception e
-                                              (.stackTrace e)))
+                                              (.printStackTrace e)))
                                           (recur))))) (range N))]
     (doseq [thread threads]
       (.start thread))

@@ -119,7 +119,11 @@
   (loop [count 0]
     (let [task (get-task-from-any-plan zk parent)]
       (if task
-        (perform-task zk task)
+        (try
+          (perform-task zk task)
+          (finally
+            (when (zk/exists zk task)
+              (zk/delete zk (str task "/owner")))))
         ; else
         (do
           (Thread/sleep (calc-sleep-time attrs count))
