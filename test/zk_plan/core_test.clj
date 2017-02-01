@@ -138,72 +138,78 @@ We retry until we get a task."
   (zk/children ..zk.. ..plan..) => nil))
 "It returns a task if it does not have `dep-*` or owner as children"
 (fact
- (get-task ..zk.. "/foo") => "/foo/bar"
+ (get-task ..zk.. "/foo") => "/foo/task-1234"
  (provided
-  (zk/children ..zk.. "/foo") => '("bar")
-  (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux")
-  (take-ownership ..zk.. "/foo/bar") => true))
+  (zk/children ..zk.. "/foo") => '("task-1234")
+  (zk/children ..zk.. "/foo/task-1234") => '("task-2345" "ready" "quux")
+  (take-ownership ..zk.. "/foo/task-1234") => true))
 "It does not return tasks that have `dep-*` children"
 (fact
  (get-task ..zk.. "/foo") => nil
  (provided
-  (zk/children ..zk.. "/foo") => '("bar")
-  (zk/children ..zk.. "/foo/bar") => '("baz" "ready" "quux" "dep-0001")))
+  (zk/children ..zk.. "/foo") => '("task-1234")
+  (zk/children ..zk.. "/foo/task-1234") => '("task-2345" "ready" "quux" "dep-0001")))
 "It does not return tasks that have owner nodes"
 (fact
  (get-task ..zk.. "/foo") => nil
  (provided
-  (zk/children ..zk.. "/foo") => '("bar")
-  (zk/children ..zk.. "/foo/bar") => '("baz" "quux" "ready" "owner")))
+  (zk/children ..zk.. "/foo") => '("task-1234")
+  (zk/children ..zk.. "/foo/task-1234") => '("task-2345" "quux" "ready" "owner")))
 "It does not take tasks that are not marked ready"
 (fact
  (get-task ..zk.. "/foo") => nil
  (provided
-  (zk/children ..zk.. "/foo") => '("bar")
-  (zk/children ..zk.. "/foo/bar") => '("baz" "quux")))
+  (zk/children ..zk.. "/foo") => '("task-1234")
+  (zk/children ..zk.. "/foo/task-1234") => '("task-2345" "quux")))
 "It takes ownership over the task by adding an 'owner' node"
 (fact
- (get-task ..zk.. "/foo") => "/foo/bar"
+ (get-task ..zk.. "/foo") => "/foo/task-1234"
  (provided
-  (zk/children ..zk.. "/foo") => '("bar")
-  (zk/children ..zk.. "/foo/bar") => '("ready")
-  (take-ownership ..zk.. "/foo/bar") => true))
+  (zk/children ..zk.. "/foo") => '("task-1234")
+  (zk/children ..zk.. "/foo/task-1234") => '("ready")
+  (take-ownership ..zk.. "/foo/task-1234") => true))
 "It moves to the next one if it is unable to take ownership"
 (fact
- (get-task ..zk.. "/foo") => "/foo/baz"
+ (get-task ..zk.. "/foo") => "/foo/task-2345"
  (provided
-  (zk/children ..zk.. "/foo") => '("bar" "baz")
-  (zk/children ..zk.. "/foo/bar") => '("ready")
-  (take-ownership ..zk.. "/foo/bar") => false
-  (zk/children ..zk.. "/foo/baz") => '("ready")
-  (take-ownership ..zk.. "/foo/baz") => true))
+  (zk/children ..zk.. "/foo") => '("task-1234" "task-2345")
+  (zk/children ..zk.. "/foo/task-1234") => '("ready")
+  (take-ownership ..zk.. "/foo/task-1234") => false
+  (zk/children ..zk.. "/foo/task-2345") => '("ready")
+  (take-ownership ..zk.. "/foo/task-2345") => true))
 
 "It looks up children lazily"
 (fact
- (get-task ..zk.. "/foo") => "/foo/bar"
+ (get-task ..zk.. "/foo") => "/foo/task-1234"
  (provided
-  (zk/children ..zk.. "/foo") => '("bar" "baz" "bat")
+  (zk/children ..zk.. "/foo") => '("task-1234" "task-2345" "bat")
   (zk/children ..zk.. irrelevant) => '("ready") :times 1
-  (take-ownership ..zk.. "/foo/bar") => true))
+  (take-ownership ..zk.. "/foo/task-1234") => true))
 
 "In case a task is removed before we got the chance to examine it, we move to the next task"
 (fact
- (get-task ..zk.. "/foo") => "/foo/baz"
+ (get-task ..zk.. "/foo") => "/foo/task-2345"
  (provided
-  (zk/children ..zk.. "/foo") => '("bar" "baz")
-  (zk/children ..zk.. "/foo/bar") => false
-  (zk/children ..zk.. "/foo/baz") => '("ready")
-  (take-ownership ..zk.. "/foo/baz") => true))
+  (zk/children ..zk.. "/foo") => '("task-1234" "task-2345")
+  (zk/children ..zk.. "/foo/task-1234") => false
+  (zk/children ..zk.. "/foo/task-2345") => '("ready")
+  (take-ownership ..zk.. "/foo/task-2345") => true))
 
 "If it comes across an empty task, it removes it and moves on"
 (fact
- (get-task ..zk.. "/foo") => "/foo/baz"
+ (get-task ..zk.. "/foo") => "/foo/task-2345"
  (provided
-  (zk/children ..zk.. "/foo") => '("bar" "baz")
-  (zk/children ..zk.. "/foo/bar") => nil
-  (zk/delete ..zk.. "/foo/bar") => irrelevant
-  (zk/children ..zk.. "/foo/baz") => '("ready")
-  (take-ownership ..zk.. "/foo/baz") => true))
+  (zk/children ..zk.. "/foo") => '("task-1234" "task-2345")
+  (zk/children ..zk.. "/foo/task-1234") => nil
+  (zk/delete ..zk.. "/foo/task-1234") => irrelevant
+  (zk/children ..zk.. "/foo/task-2345") => '("ready")
+  (take-ownership ..zk.. "/foo/task-2345") => true))
+
+"It ignores children of the plan which are not of the form `task-*`"
+(fact
+ (get-task ..zk.. "/foo") => nil
+ (provided
+  (zk/children ..zk.. "/foo") => '("bar" "baz" "ready")))
 
 [[:section {:title "perform-task"}]]
 "
@@ -217,33 +223,33 @@ We retry until we get a task."
 successfully, and the result has been distributed to all dependent tasks (if any).
 In such a case we remove the task."
 (fact
- (perform-task ..zk.. "/foo/bar") => irrelevant
+ (perform-task ..zk.. "/foo/task-1234") => irrelevant
  (provided
-  (zk/children ..zk.. "/foo/bar") => '("result")
+  (zk/children ..zk.. "/foo/task-1234") => '("result")
   (get-clj-data irrelevant irrelevant) => 123
-  (zk/delete-all ..zk.. "/foo/bar") => irrelevant))
+  (zk/delete-all ..zk.. "/foo/task-1234") => irrelevant))
 
 "If `prov-*` children exist, it reads the result and distributes it across the tasks
 depending on this task (the corresponding dep-* nodes)"
 (fact
- (perform-task ..zk.. "/foo/bar") => irrelevant
+ (perform-task ..zk.. "/foo/task-1234") => irrelevant
  (provided
-  (zk/children ..zk.. "/foo/bar") => '("result" "prov-00000" "prov-0001")
-  (get-clj-data ..zk.. "/foo/bar/result") => 3.1415
-  (propagate-result ..zk.. "/foo/bar/prov-00000" 3.1415) => irrelevant
-  (propagate-result ..zk.. "/foo/bar/prov-0001" 3.1415) => irrelevant
+  (zk/children ..zk.. "/foo/task-1234") => '("result" "prov-00000" "prov-0001")
+  (get-clj-data ..zk.. "/foo/task-1234/result") => 3.1415
+  (propagate-result ..zk.. "/foo/task-1234/prov-00000" 3.1415) => irrelevant
+  (propagate-result ..zk.. "/foo/task-1234/prov-0001" 3.1415) => irrelevant
   (zk/delete-all irrelevant irrelevant) => irrelevant))
 
 "If the task does not have a result, we need to calculate the result ourselves.
 We call execute-function to get the result, and store it as the 'result' child."
 (fact
- (perform-task ..zk.. "/foo/bar") => irrelevant
+ (perform-task ..zk.. "/foo/task-1234") => irrelevant
  (provided
-  (zk/children ..zk.. "/foo/bar") => '()
-  (execute-function ..zk.. "/foo/bar") => 1234.5
+  (zk/children ..zk.. "/foo/task-1234") => '()
+  (execute-function ..zk.. "/foo/task-1234") => 1234.5
                                         ; It should create a result child node and store the result to it
-  (zk/create ..zk.. "/foo/bar/result" :persistent? true) => true
-  (set-initial-clj-data ..zk.. "/foo/bar/result" 1234.5) => irrelevant
+  (zk/create ..zk.. "/foo/task-1234/result" :persistent? true) => true
+  (set-initial-clj-data ..zk.. "/foo/task-1234/result" 1234.5) => irrelevant
   (zk/delete-all irrelevant irrelevant) => irrelevant))
 
 [[:section {:title "set-initial-clj-data"}]]
@@ -302,9 +308,9 @@ We call execute-function to get the result, and store it as the 'result' child."
 
 "It tries to add an ephemeral 'owner' node to the task, and return whether it was successful"
 (fact
-      (take-ownership ..zk.. "/foo/bar") => ..result..
+      (take-ownership ..zk.. "/foo/task-1234") => ..result..
       (provided
-       (zk/create ..zk.. "/foo/bar/owner" :persistent? false) => ..result..))
+       (zk/create ..zk.. "/foo/task-1234/owner" :persistent? false) => ..result..))
 
 
 
@@ -321,16 +327,16 @@ If no parameters exist in the task it executes the function without parameters."
       (execute-function ..zk.. ..task..) => 3
       (provided
        (get-clj-data ..zk.. ..task..) => '(fn [] 3)
-       (zk/children ..zk.. ..task..) => '("foo" "bar")))
+       (zk/children ..zk.. ..task..) => '("foo" "task-1234")))
 "It passes the task arguments to the function"
 (fact
-      (execute-function ..zk.. "/foo/bar") => [1 2 3]
+      (execute-function ..zk.. "/foo/task-1234") => [1 2 3]
       (provided
-       (get-clj-data ..zk.. "/foo/bar") => '(fn [& args] args)
-       (zk/children ..zk.. "/foo/bar") => '("arg-00001" "arg-00002" "arg-00000")
-       (get-clj-data ..zk.. "/foo/bar/arg-00000") => 1
-       (get-clj-data ..zk.. "/foo/bar/arg-00001") => 2
-       (get-clj-data ..zk.. "/foo/bar/arg-00002") => 3))
+       (get-clj-data ..zk.. "/foo/task-1234") => '(fn [& args] args)
+       (zk/children ..zk.. "/foo/task-1234") => '("arg-00001" "arg-00002" "arg-00000")
+       (get-clj-data ..zk.. "/foo/task-1234/arg-00000") => 1
+       (get-clj-data ..zk.. "/foo/task-1234/arg-00001") => 2
+       (get-clj-data ..zk.. "/foo/task-1234/arg-00002") => 3))
 
 [[:section {:title "propagate-result"}]]
 "
@@ -348,10 +354,10 @@ If no parameters exist in the task it executes the function without parameters."
 (fact
  (propagate-result ..zk.. ..prov.. ..value..) => irrelevant
  (provided
-  (get-clj-data ..zk.. ..prov..) => "/foo/bar/dep-01472"
-  (zk/create ..zk.. "/foo/bar/arg-01472" :persistent? true) => true
-  (set-initial-clj-data ..zk.. "/foo/bar/arg-01472" ..value..) => irrelevant
-  (zk/delete ..zk.. "/foo/bar/dep-01472") => irrelevant))
+  (get-clj-data ..zk.. ..prov..) => "/foo/task-1234/dep-01472"
+  (zk/create ..zk.. "/foo/task-1234/arg-01472" :persistent? true) => true
+  (set-initial-clj-data ..zk.. "/foo/task-1234/arg-01472" ..value..) => irrelevant
+  (zk/delete ..zk.. "/foo/task-1234/dep-01472") => irrelevant))
 
 [[:section {:title "get-task-from-any-plan"}]]
 "
@@ -370,29 +376,29 @@ If no parameters exist in the task it executes the function without parameters."
 (fact
  (get-task-from-any-plan ..zk.. "/foo") => ..task..
  (provided
-  (zk/children ..zk.. "/foo") => '("bar")
-  (zk/exists ..zk.. "/foo/bar/ready") => {:some-key "value"}
-  (get-task ..zk.. "/foo/bar") => ..task..))
+  (zk/children ..zk.. "/foo") => '("task-1234")
+  (zk/exists ..zk.. "/foo/task-1234/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/task-1234") => ..task..))
 
 "If a plan is not ready, it should be skipped"
 (fact
  (get-task-from-any-plan ..zk.. "/foo") => ..task..
  (provided
-  (zk/children ..zk.. "/foo") => '("bar" "baz")
-  (zk/exists ..zk.. "/foo/bar/ready") => nil
-  (zk/exists ..zk.. "/foo/baz/ready") => {:some-key "value"}
-  (get-task ..zk.. "/foo/baz") => ..task..))
+  (zk/children ..zk.. "/foo") => '("task-1234" "task-2345")
+  (zk/exists ..zk.. "/foo/task-1234/ready") => nil
+  (zk/exists ..zk.. "/foo/task-2345/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/task-2345") => ..task..))
 
 "If a `get-task` does not return a task (e.g., no ready tasks), we move on to the next plan.
 This should be done lazily, so that additional plans must not be queried."
 (fact
  (get-task-from-any-plan ..zk.. "/foo") => ..task..
  (provided
-  (zk/children ..zk.. "/foo") => '("bar" "baz" "quux")
-  (zk/exists ..zk.. "/foo/bar/ready") => {:some-key "value"}
-  (get-task ..zk.. "/foo/bar") => nil
-  (zk/exists ..zk.. "/foo/baz/ready") => {:some-key "value"}
-  (get-task ..zk.. "/foo/baz") => ..task..))
+  (zk/children ..zk.. "/foo") => '("task-1234" "task-2345" "quux")
+  (zk/exists ..zk.. "/foo/task-1234/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/task-1234") => nil
+  (zk/exists ..zk.. "/foo/task-2345/ready") => {:some-key "value"}
+  (get-task ..zk.. "/foo/task-2345") => ..task..))
 
 [[:section {:title "calc-sleep-time"}]]
 "
@@ -525,3 +531,4 @@ In case of an exception thrown from the worker, we report it, but move on to cal
                   (Thread/sleep 100)
                   (recur)))
               (join-stress-workers threads)))))
+         

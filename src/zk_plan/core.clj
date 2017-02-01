@@ -33,8 +33,9 @@
   (zk/create zk (str task "/owner") :persistent? false))
 
 (defn get-task [zk plan]
-  (let [task-names (zk/children zk plan)
-        tasks (map #(str plan "/" %) task-names)]
+  (let [tasks (->> (zk/children zk plan)
+                   (filter #(re-matches #"task-\d+" %))
+                   (map #(str plan "/" %)))]
     (loop [tasks tasks]
             (if (empty? tasks)
               nil
